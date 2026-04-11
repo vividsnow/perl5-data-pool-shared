@@ -377,6 +377,33 @@ directly on the mmap'd memory — no locking overhead.
 
 =back
 
+=head1 BENCHMARKS
+
+Measured on a single-socket x86_64 Linux system, Perl 5.40.
+
+    Single process (1M ops):
+      I64 alloc + free          3.3M/s
+      I64 get                  ~10M/s
+      I64 set                  ~10M/s
+      I64 add/incr             ~10M/s
+      I64 cas                   9.4M/s
+      Str set (48B)            ~10M/s
+      Str get (48B)             7.6M/s
+      alloc_set + free          1.8M/s
+
+    Multi-process (8 workers, 200K ops each, cap=64):
+      I64 alloc/free            5.4M/s aggregate
+      I64 alloc/set/get/free    5.3M/s aggregate
+      I64 atomic add           28.5M/s aggregate
+      Str alloc/set/get/free    4.8M/s aggregate
+
+    Batch (single process, alloc_n + free_n):
+      batch=1                   ~2.3M/s
+      batch=16                  ~400K/s  (vs ~200K individual)
+      batch=64                  ~110K/s  (vs ~50K individual, 2x gain)
+
+Bottleneck is Perl XS call overhead, not the CAS or futex.
+
 =head1 AUTHOR
 
 vividsnow
