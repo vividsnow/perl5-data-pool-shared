@@ -193,6 +193,17 @@ Returns slot index on success, C<undef> on failure/timeout.
 
     $pool->free($idx);                  # release slot (returns true/false)
 
+=head2 Batch Operations
+
+    my $slots = $pool->alloc_n($n);            # allocate N slots (blocking)
+    my $slots = $pool->alloc_n($n, $timeout);  # with timeout
+    # returns arrayref of indices, or undef (all-or-nothing)
+
+    my $freed = $pool->free_n(\@indices);      # batch free, returns count freed
+    # single used-decrement + single futex wake (faster than N individual frees)
+
+    my $slots = $pool->allocated_slots;  # arrayref of all allocated indices
+
 =head2 Data Access
 
     my $val = $pool->get($idx);         # read slot
@@ -208,6 +219,17 @@ For I64/I32 variants:
 For Str variant:
 
     my $max = $pool->max_len;           # maximum string length
+
+=head2 Zero-Copy Access
+
+    my $sv = $pool->slot_sv($idx);  # SV backed by slot memory
+
+Returns a read-only scalar whose PV points directly into the shared
+memory slot. Reading the scalar reads the slot with no C<memcpy>.
+Useful for large slots where avoiding copy matters.
+
+The scalar must not outlive the pool object. To modify the slot,
+use C<set()>.
 
 =head2 Status
 
@@ -252,6 +274,70 @@ For Str variant:
     my $fd = $pool->fileno;            # current eventfd (-1 if none)
     $pool->notify;                     # signal eventfd
     my $n  = $pool->eventfd_consume;   # drain counter
+
+=head1 STATS
+
+C<stats()> returns a hashref with diagnostic counters. All values are
+approximate under concurrency.
+
+=over
+
+=item C<capacity> — total slot count (immutable)
+
+=item C<elem_size> — bytes per slot (immutable)
+
+=item C<used> — currently allocated slot count
+
+=item C<available> — currently free slot count (C<capacity - used>)
+
+=item C<waiters> — processes currently blocked on C<alloc>
+
+=item C<mmap_size> — total mmap region size in bytes
+
+=item C<allocs> — cumulative successful allocations
+
+=item C<frees> — cumulative frees (including stale recovery)
+
+=item C<waits> — C<alloc> calls that entered the retry loop
+
+=item C<timeouts> — C<alloc> calls that timed out
+
+=item C<recoveries> — slots freed by C<recover_stale>
+
+=back
+
+=head1 SECURITY
+
+The shared memory region (mmap) is writable by all processes that open
+it. A malicious process with write access to the backing file or memfd
+can corrupt header fields (bitmap, counters, slot data) and cause other
+processes to crash, spin, or return incorrect data. Do not share backing
+files with untrusted processes. Use anonymous mode or memfd with
+restricted fd passing for isolation.
+
+=head1 PERFORMANCE
+
+=over
+
+=item * Allocation scans a bitmap of C<ceil(capacity/64)> words.
+O(capacity/64) worst case, O(1) amortized with scan_hint.
+
+=item * Each allocation is a single CAS on one bitmap word.
+Under contention, CAS retries on the same word are ~10ns each.
+
+=item * When pool is full, C<alloc> blocks on a futex (zero CPU).
+Woken by a single C<FUTEX_WAKE> syscall on C<free>.
+
+=item * C<free_n> batches N frees into a single C<used> decrement
+and a single C<FUTEX_WAKE> syscall — faster than N individual frees.
+
+=item * C<slot_sv> provides zero-copy access to slot data, avoiding
+C<memcpy> overhead for large slots.
+
+=item * Typed variants (I64, I32) use atomic load/store/CAS/add
+directly on the mmap'd memory — no locking overhead.
+
+=back
 
 =head1 AUTHOR
 
