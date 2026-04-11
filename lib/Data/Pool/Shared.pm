@@ -222,6 +222,18 @@ For Str variant:
 
     my $max = $pool->max_len;           # maximum string length
 
+=head2 Raw Pointers
+
+    my $ptr = $pool->ptr($idx);     # raw C pointer to slot data (UV)
+    my $ptr = $pool->data_ptr;      # pointer to start of data section
+
+C<ptr> returns the memory address of a slot's data as an unsigned
+integer. Use with L<FFI::Platypus>, OpenGL C<_c> functions, or XS
+code that needs a C<void*>.
+
+C<data_ptr> returns the base of the contiguous data region. Slots
+are laid out as C<data_ptr + idx * elem_size>.
+
 =head2 Zero-Copy Access
 
     my $sv = $pool->slot_sv($idx);  # SV backed by slot memory
