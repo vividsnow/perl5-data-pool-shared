@@ -6,8 +6,14 @@ eg/atomic_counters.pl
 eg/basic.pl
 eg/connection_pool.pl
 eg/ev_eventfd.pl
+eg/ffi_sort.pl
 eg/guard.pl
 eg/memfd_fork.pl
+eg/opengl_particles.pl
+eg/pdl_interop.pl
+eg/pipeline.pl
+eg/pool_buffer_bridge.pl
+eg/pool_with_hashmap.pl
 eg/shared_metrics.pl
 eg/stale_recovery.pl
 lib/Data/Pool/Shared.pm
