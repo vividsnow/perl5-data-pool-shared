@@ -305,4 +305,78 @@ waitpid($rpid, 0);
 
 is $rpool->used, 0, "concurrent recovery freed all 20 stale slots";
 
+# --- cmpxchg / xchg ---
+
+my $cx = Data::Pool::Shared::I64->new(undef, 4);
+$s = $cx->alloc;
+$cx->set($s, 100);
+
+# cmpxchg success — returns old value (== expected)
+my $old = $cx->cmpxchg($s, 100, 200);
+is $old, 100, "cmpxchg success returns old value";
+is $cx->get($s), 200, "cmpxchg updated slot";
+
+# cmpxchg failure — returns actual value (!= expected)
+$old = $cx->cmpxchg($s, 999, 300);
+is $old, 200, "cmpxchg failure returns actual value";
+is $cx->get($s), 200, "cmpxchg did not modify on failure";
+
+# xchg — unconditional swap
+$old = $cx->xchg($s, 500);
+is $old, 200, "xchg returns old value";
+is $cx->get($s), 500, "xchg set new value";
+
+$cx->free($s);
+
+# I32 cmpxchg/xchg
+my $cx32 = Data::Pool::Shared::I32->new(undef, 4);
+$s = $cx32->alloc;
+$cx32->set($s, 10);
+$old = $cx32->cmpxchg($s, 10, 20);
+is $old, 10, "I32 cmpxchg success";
+$old = $cx32->cmpxchg($s, 99, 30);
+is $old, 20, "I32 cmpxchg failure returns actual";
+$old = $cx32->xchg($s, 77);
+is $old, 20, "I32 xchg returns old";
+is $cx32->get($s), 77, "I32 xchg set new";
+$cx32->free($s);
+
+# --- File persistence ---
+
+my $ppath = tmpnam() . '.shm';
+{
+    my $p = Data::Pool::Shared::I64->new($ppath, 10);
+    my $a = $p->alloc;
+    my $b = $p->alloc;
+    $p->set($a, 111);
+    $p->set($b, 222);
+    # handle goes out of scope — mmap unmapped, fd closed
+}
+
+# reopen from same path — data should survive
+{
+    my $p = Data::Pool::Shared::I64->new($ppath, 10);
+    is $p->used, 2, "persistence: used=2 after reopen";
+    my $slots = $p->allocated_slots;
+    is scalar @$slots, 2, "persistence: 2 allocated slots";
+    my @vals = sort map { $p->get($_) } @$slots;
+    is_deeply \@vals, [111, 222], "persistence: values survived";
+}
+unlink $ppath;
+
+# Str persistence
+my $spath2 = tmpnam() . '.shm';
+{
+    my $p = Data::Pool::Shared::Str->new($spath2, 5, 32);
+    my $a = $p->alloc;
+    $p->set($a, "persistent data");
+}
+{
+    my $p = Data::Pool::Shared::Str->new($spath2, 5, 32);
+    is $p->used, 1, "Str persistence: used=1";
+    my $slots = $p->allocated_slots;
+    is $p->get($slots->[0]), "persistent data", "Str persistence: data survived";
+}
+unlink $spath2;
+
 done_testing;

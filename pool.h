@@ -685,6 +685,17 @@ static inline int pool_cas_i64(PoolHandle *h, uint64_t slot,
             &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
 }
 
+static inline int64_t pool_cmpxchg_i64(PoolHandle *h, uint64_t slot,
+                                        int64_t expected, int64_t desired) {
+    __atomic_compare_exchange_n((int64_t *)pool_slot_ptr(h, slot),
+            &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
+    return expected;
+}
+
+static inline int64_t pool_xchg_i64(PoolHandle *h, uint64_t slot, int64_t val) {
+    return __atomic_exchange_n((int64_t *)pool_slot_ptr(h, slot), val, __ATOMIC_ACQ_REL);
+}
+
 static inline int64_t pool_add_i64(PoolHandle *h, uint64_t slot, int64_t delta) {
     return __atomic_add_fetch((int64_t *)pool_slot_ptr(h, slot), delta, __ATOMIC_ACQ_REL);
 }
@@ -701,6 +712,17 @@ static inline int pool_cas_i32(PoolHandle *h, uint64_t slot,
                                 int32_t expected, int32_t desired) {
     return __atomic_compare_exchange_n((int32_t *)pool_slot_ptr(h, slot),
             &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
+}
+
+static inline int32_t pool_cmpxchg_i32(PoolHandle *h, uint64_t slot,
+                                        int32_t expected, int32_t desired) {
+    __atomic_compare_exchange_n((int32_t *)pool_slot_ptr(h, slot),
+            &expected, desired, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED);
+    return expected;
+}
+
+static inline int32_t pool_xchg_i32(PoolHandle *h, uint64_t slot, int32_t val) {
+    return __atomic_exchange_n((int32_t *)pool_slot_ptr(h, slot), val, __ATOMIC_ACQ_REL);
 }
 
 static inline int32_t pool_add_i32(PoolHandle *h, uint64_t slot, int32_t delta) {
