@@ -20,6 +20,7 @@ use lib "$FindBin::Bin/../../Data-Sync-Shared/blib/lib",
 use POSIX qw(_exit);
 use Time::HiRes qw(time);
 
+$| = 1;
 eval { require Data::Pool::Shared;  1 } or die "Data::Pool::Shared required\n";
 eval { require Data::Queue::Shared; 1 } or die "Data::Queue::Shared required (sibling module)\n";
 eval { require Data::Sync::Shared;  1 } or die "Data::Sync::Shared required (sibling module)\n";
@@ -48,21 +49,19 @@ my @pids;
 for my $w (1 .. $NWORKERS) {
     my $pid = fork // die "fork: $!";
     if ($pid == 0) {
+        use integer;
         $barrier->wait;
         while (1) {
             my $job_slot = $job_q->pop_wait(2.0);
             last unless defined $job_slot;
             last if $job_slot == -1;  # poison pill
 
-            # read job data from pool
             my $input = $jobs_pool->get($job_slot);
             $jobs_pool->free($job_slot);
 
             # "process": compute a hash of the input
-            use integer;
             my $hash = 0;
             $hash = $hash * 31 + ord($_) for split //, $input;
-            no integer;
 
             # store result in results pool
             my $res_slot = $results_pool->alloc;

@@ -8,6 +8,7 @@ use FindBin;
 use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
 use POSIX qw(_exit);
 use Data::Pool::Shared;
+$| = 1;
 
 my $nworkers = shift || 8;
 my $nconns   = shift || 3;

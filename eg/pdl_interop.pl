@@ -18,6 +18,7 @@ eval { require PDL; PDL->import; 1 }
 
 use POSIX qw(_exit);
 use Data::Pool::Shared;
+$| = 1;
 
 my $N = shift || 1000;
 

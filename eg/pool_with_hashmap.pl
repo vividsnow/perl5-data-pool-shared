@@ -19,6 +19,7 @@ use lib "$FindBin::Bin/../../Data-HashMap-Shared/blib/lib",
 use POSIX qw(_exit);
 use File::Temp qw(tmpnam);
 
+$| = 1;
 eval { require Data::Pool::Shared;    1 } or die "Data::Pool::Shared required\n";
 eval { require Data::HashMap::Shared; 1 } or die "Data::HashMap::Shared required (sibling module)\n";
 

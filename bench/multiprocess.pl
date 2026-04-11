@@ -37,7 +37,7 @@ sub run_bench {
 
     my $total = $WORKERS * $OPS;
     my $s = $pool->stats;
-    printf "  %-35s %10.0f/s  (%.3fs)  waits=%d\n",
+    printf "  %-45s %10.0f/s  (%.3fs)  waits=%d\n",
         $label, $total / $dt, $dt, $s->{waits};
     warn "  WARNING: $fails workers failed\n" if $fails;
 }
@@ -97,7 +97,7 @@ run_bench "I64 alloc/set/get/free" => $i64, sub {
     my $dt = time - $t0;
 
     my $total_ops = $WORKERS * $OPS;
-    printf "  %-35s %10.0f/s  (%.3fs)\n",
+    printf "  %-45s %10.0f/s  (%.3fs)\n",
         "I64 atomic add ($nslots slots)", $total_ops / $dt, $dt;
 
     my $total = 0;

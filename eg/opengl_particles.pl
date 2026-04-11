@@ -16,6 +16,7 @@ use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
 use POSIX qw(_exit);
 use Time::HiRes qw(time sleep);
 use Data::Pool::Shared;
+$| = 1;
 
 my $N = shift || 100;  # number of particles
 
