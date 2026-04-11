@@ -433,6 +433,29 @@ allocated_slots(self)
   OUTPUT:
     RETVAL
 
+UV
+ptr(self, slot)
+    SV *self
+    UV slot
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = PTR2UV(pool_slot_ptr(h, slot));
+  OUTPUT:
+    RETVAL
+
+UV
+data_ptr(self)
+    SV *self
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    RETVAL = PTR2UV(h->data);
+  OUTPUT:
+    RETVAL
+
 SV *
 slot_sv(self, slot)
     SV *self
