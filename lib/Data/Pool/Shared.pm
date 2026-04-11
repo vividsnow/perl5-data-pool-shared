@@ -211,10 +211,12 @@ Returns slot index on success, C<undef> on failure/timeout.
 
 For I64/I32 variants:
 
-    my $ok  = $pool->cas($idx, $old, $new);  # atomic compare-and-swap
-    my $val = $pool->add($idx, $delta);      # atomic add, returns new value
-    my $val = $pool->incr($idx);             # atomic increment
-    my $val = $pool->decr($idx);             # atomic decrement
+    my $ok  = $pool->cas($idx, $old, $new);     # atomic CAS, returns bool
+    my $old = $pool->cmpxchg($idx, $old, $new); # atomic CAS, returns old value
+    my $old = $pool->xchg($idx, $val);          # atomic exchange, returns old
+    my $val = $pool->add($idx, $delta);          # atomic add, returns new value
+    my $val = $pool->incr($idx);                 # atomic increment
+    my $val = $pool->decr($idx);                 # atomic decrement
 
 For Str variant:
 

@@ -540,6 +540,35 @@ cas(self, slot, expected, desired)
     RETVAL
 
 IV
+cmpxchg(self, slot, expected, desired)
+    SV *self
+    UV slot
+    IV expected
+    IV desired
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = (IV)pool_cmpxchg_i64(h, slot, (int64_t)expected, (int64_t)desired);
+  OUTPUT:
+    RETVAL
+
+IV
+xchg(self, slot, val)
+    SV *self
+    UV slot
+    IV val
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = (IV)pool_xchg_i64(h, slot, (int64_t)val);
+  OUTPUT:
+    RETVAL
+
+IV
 add(self, slot, delta)
     SV *self
     UV slot
@@ -735,6 +764,35 @@ cas(self, slot, expected, desired)
     CHECK_SLOT(h, slot);
     CHECK_ALLOCATED(h, slot);
     RETVAL = pool_cas_i32(h, slot, (int32_t)expected, (int32_t)desired);
+  OUTPUT:
+    RETVAL
+
+IV
+cmpxchg(self, slot, expected, desired)
+    SV *self
+    UV slot
+    IV expected
+    IV desired
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = (IV)pool_cmpxchg_i32(h, slot, (int32_t)expected, (int32_t)desired);
+  OUTPUT:
+    RETVAL
+
+IV
+xchg(self, slot, val)
+    SV *self
+    UV slot
+    IV val
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = (IV)pool_xchg_i32(h, slot, (int32_t)val);
   OUTPUT:
     RETVAL
 
