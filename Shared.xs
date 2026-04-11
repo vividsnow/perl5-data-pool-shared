@@ -356,6 +356,103 @@ stats(self)
     RETVAL
 
 
+SV *
+alloc_n(self, count, ...)
+    SV *self
+    UV count
+  PREINIT:
+    EXTRACT_POOL(self);
+    double timeout = -1;
+  CODE:
+    if (items > 2) timeout = SvNV(ST(2));
+    if (count == 0) {
+        RETVAL = newRV_noinc((SV *)newAV());
+    } else {
+        uint64_t *buf;
+        Newx(buf, count, uint64_t);
+        if (pool_alloc_n(h, buf, (uint32_t)count, timeout)) {
+            AV *av = newAV();
+            av_extend(av, count - 1);
+            for (UV i = 0; i < count; i++)
+                av_push(av, newSViv((IV)buf[i]));
+            RETVAL = newRV_noinc((SV *)av);
+        } else {
+            RETVAL = &PL_sv_undef;
+        }
+        Safefree(buf);
+    }
+  OUTPUT:
+    RETVAL
+
+UV
+free_n(self, slots_av)
+    SV *self
+    SV *slots_av
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    if (!SvROK(slots_av) || SvTYPE(SvRV(slots_av)) != SVt_PVAV)
+        croak("free_n: expected arrayref");
+    AV *av = (AV *)SvRV(slots_av);
+    SSize_t len = av_top_index(av) + 1;
+    if (len <= 0) {
+        RETVAL = 0;
+    } else {
+        uint64_t *buf;
+        Newx(buf, len, uint64_t);
+        for (SSize_t i = 0; i < len; i++) {
+            SV **svp = av_fetch(av, i, 0);
+            buf[i] = svp ? (uint64_t)SvUV(*svp) : 0;
+        }
+        RETVAL = pool_free_n(h, buf, (uint32_t)len);
+        Safefree(buf);
+    }
+  OUTPUT:
+    RETVAL
+
+SV *
+allocated_slots(self)
+    SV *self
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    AV *av = newAV();
+    uint64_t cap = h->hdr->capacity;
+    uint32_t nwords = h->bitmap_words;
+    for (uint32_t widx = 0; widx < nwords; widx++) {
+        uint64_t word = __atomic_load_n(&h->bitmap[widx], __ATOMIC_RELAXED);
+        while (word) {
+            int bit = __builtin_ctzll(word);
+            uint64_t slot = (uint64_t)widx * 64 + bit;
+            if (slot < cap)
+                av_push(av, newSViv((IV)slot));
+            word &= word - 1;
+        }
+    }
+    RETVAL = newRV_noinc((SV *)av);
+  OUTPUT:
+    RETVAL
+
+SV *
+slot_sv(self, slot)
+    SV *self
+    UV slot
+  PREINIT:
+    EXTRACT_POOL(self);
+  CODE:
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
+    RETVAL = newSV(0);
+    sv_upgrade(RETVAL, SVt_PV);
+    SvPV_set(RETVAL, (char *)pool_slot_ptr(h, slot));
+    SvLEN_set(RETVAL, 0);
+    SvCUR_set(RETVAL, h->hdr->elem_size);
+    SvPOK_on(RETVAL);
+    SvREADONLY_on(RETVAL);
+  OUTPUT:
+    RETVAL
+
+
 MODULE = Data::Pool::Shared  PACKAGE = Data::Pool::Shared::I64
 
 PROTOTYPES: DISABLE

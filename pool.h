@@ -172,7 +172,9 @@ static inline int64_t pool_try_alloc(PoolHandle *h) {
                 memset(pool_slot_ptr(h, slot), 0, h->hdr->elem_size);
                 __atomic_add_fetch(&h->hdr->used, 1, __ATOMIC_RELEASE);
                 __atomic_add_fetch(&h->hdr->stat_allocs, 1, __ATOMIC_RELAXED);
-                h->scan_hint = widx;
+                /* Advance hint past full word to reduce next scan */
+                h->scan_hint = (new_word == ~(uint64_t)0 && nwords > 1)
+                    ? (widx + 1) % nwords : widx;
                 return (int64_t)slot;
             }
             /* CAS failed — word now holds current value, retry */
@@ -258,6 +260,89 @@ static inline int pool_free_slot(PoolHandle *h, uint64_t slot) {
             return 1;
         }
     }
+}
+
+/* ================================================================
+ * Batch free — single used decrement + single futex wake
+ * ================================================================ */
+
+static inline uint32_t pool_free_n(PoolHandle *h, uint64_t *slots, uint32_t count) {
+    uint32_t freed = 0;
+    PoolHeader *hdr = h->hdr;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint64_t slot = slots[i];
+        if (slot >= hdr->capacity) continue;
+
+        uint32_t widx = (uint32_t)(slot / 64);
+        int bit = (int)(slot % 64);
+        uint64_t mask = (uint64_t)1 << bit;
+
+        for (;;) {
+            uint64_t word = __atomic_load_n(&h->bitmap[widx], __ATOMIC_RELAXED);
+            if (!(word & mask)) break;
+            uint64_t new_word = word & ~mask;
+            if (__atomic_compare_exchange_n(&h->bitmap[widx], &word, new_word,
+                    1, __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
+                __atomic_store_n(&h->owners[slot], 0, __ATOMIC_RELAXED);
+                freed++;
+                break;
+            }
+        }
+    }
+
+    if (freed > 0) {
+        __atomic_sub_fetch(&hdr->used, freed, __ATOMIC_RELEASE);
+        __atomic_add_fetch(&hdr->stat_frees, freed, __ATOMIC_RELAXED);
+        if (__atomic_load_n(&hdr->waiters, __ATOMIC_RELAXED) > 0) {
+            int wake = freed < (uint32_t)INT_MAX ? (int)freed : INT_MAX;
+            syscall(SYS_futex, &hdr->used, FUTEX_WAKE, wake, NULL, NULL, 0);
+        }
+    }
+    return freed;
+}
+
+/* ================================================================
+ * Batch alloc — all-or-nothing, shared deadline
+ * ================================================================ */
+
+static inline int pool_alloc_n(PoolHandle *h, uint64_t *out, uint32_t count,
+                                double timeout) {
+    if (count == 0) return 1;
+
+    if (timeout == 0) {
+        for (uint32_t i = 0; i < count; i++) {
+            int64_t slot = pool_try_alloc(h);
+            if (slot < 0) {
+                if (i > 0) pool_free_n(h, out, i);
+                return 0;
+            }
+            out[i] = (uint64_t)slot;
+        }
+        return 1;
+    }
+
+    struct timespec deadline, remaining;
+    int has_deadline = (timeout > 0);
+    if (has_deadline) pool_make_deadline(timeout, &deadline);
+
+    for (uint32_t i = 0; i < count; i++) {
+        double t = timeout;
+        if (has_deadline) {
+            if (!pool_remaining_time(&deadline, &remaining)) {
+                if (i > 0) pool_free_n(h, out, i);
+                return 0;
+            }
+            t = (double)remaining.tv_sec + (double)remaining.tv_nsec / 1e9;
+        }
+        int64_t slot = pool_alloc(h, t);
+        if (slot < 0) {
+            if (i > 0) pool_free_n(h, out, i);
+            return 0;
+        }
+        out[i] = (uint64_t)slot;
+    }
+    return 1;
 }
 
 /* ================================================================
