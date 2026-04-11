@@ -330,6 +330,7 @@ static inline int pool_alloc_n(PoolHandle *h, uint64_t *out, uint32_t count,
         double t = timeout;
         if (has_deadline) {
             if (!pool_remaining_time(&deadline, &remaining)) {
+                __atomic_add_fetch(&h->hdr->stat_timeouts, 1, __ATOMIC_RELAXED);
                 if (i > 0) pool_free_n(h, out, i);
                 return 0;
             }

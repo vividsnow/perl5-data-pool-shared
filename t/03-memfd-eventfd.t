@@ -55,6 +55,36 @@ my $spool2 = Data::Pool::Shared::Str->new_from_fd($sfd);
 is $spool2->get($si), "memfd string", 'Str data via fd';
 $spool->free($si);
 
+# --- F64 memfd + from_fd ---
+
+my $f64 = Data::Pool::Shared::F64->new_memfd("f64_pool", 5);
+ok $f64, 'F64 memfd created';
+my $fi = $f64->alloc;
+$f64->set($fi, 3.14);
+my $f64b = Data::Pool::Shared::F64->new_from_fd($f64->memfd);
+ok abs($f64b->get($fi) - 3.14) < 0.001, 'F64 data via fd';
+$f64->free($fi);
+
+# --- I32 memfd + from_fd ---
+
+my $i32 = Data::Pool::Shared::I32->new_memfd("i32_pool", 5);
+ok $i32, 'I32 memfd created';
+my $ti = $i32->alloc;
+$i32->set($ti, -42);
+my $i32b = Data::Pool::Shared::I32->new_from_fd($i32->memfd);
+is $i32b->get($ti), -42, 'I32 data via fd';
+$i32->free($ti);
+
+# --- Raw memfd + from_fd ---
+
+my $rawp = Data::Pool::Shared->new_memfd("raw_pool", 5, 16);
+ok $rawp, 'Raw memfd created';
+my $ri = $rawp->alloc;
+$rawp->set($ri, "hello raw memfd!");
+my $rawp2 = Data::Pool::Shared->new_from_fd($rawp->memfd);
+is $rawp2->get($ri), "hello raw memfd!", 'Raw data via fd';
+$rawp->free($ri);
+
 # --- eventfd ---
 
 my $epool = Data::Pool::Shared::I64->new_memfd("efd_pool", 10);

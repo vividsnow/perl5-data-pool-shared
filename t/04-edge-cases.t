@@ -275,6 +275,57 @@ is substr($sv2, 0, 12), "updated data", "slot_sv reflects set() changes";
 
 $raw->free($s);
 
+# --- ptr / data_ptr ---
+
+my $ppool = Data::Pool::Shared::I64->new(undef, 10);
+my $ps = $ppool->alloc;
+$ppool->set($ps, 0xDEADBEEF);
+
+my $ptr = $ppool->ptr($ps);
+ok $ptr > 0, "ptr returns non-zero address";
+
+my $dptr = $ppool->data_ptr;
+ok $dptr > 0, "data_ptr returns non-zero address";
+
+# ptr should equal data_ptr + slot * elem_size
+is $ptr, $dptr + $ps * $ppool->elem_size, "ptr = data_ptr + slot * elem_size";
+
+# verify the pointer actually points to our data (read via unpack from slot_sv)
+my $from_sv = unpack('q<', $ppool->slot_sv($ps));
+is $from_sv, 0xDEADBEEF, "ptr target matches slot data";
+
+# error: ptr on unallocated
+$ppool->free($ps);
+eval { $ppool->ptr($ps) };
+like $@, qr/not allocated/, "ptr on freed slot croaks";
+
+eval { $ppool->ptr(999) };
+like $@, qr/out of range/, "ptr out of range croaks";
+
+# --- try_alloc_guard ---
+
+my $gpool = Data::Pool::Shared::I64->new(undef, 3);
+
+# successful try_alloc_guard in list context
+my ($gi, $gg) = $gpool->try_alloc_guard;
+ok defined $gi, "try_alloc_guard returns index";
+ok ref $gg, "try_alloc_guard returns guard";
+$gpool->set($gi, 42);
+is $gpool->is_allocated($gi), 1, "try_alloc_guard slot allocated";
+
+# guard auto-frees on scope exit
+{ my ($i2, $g2) = $gpool->try_alloc_guard }
+is $gpool->used, 1, "try_alloc_guard guard freed on scope exit";
+
+# fill pool, try_alloc_guard returns undef
+my @fill_guards;
+push @fill_guards, scalar $gpool->try_alloc_guard for 1..2;
+my ($fail_i, $fail_g) = $gpool->try_alloc_guard;
+ok !defined $fail_i, "try_alloc_guard returns undef when full";
+@fill_guards = ();
+undef $gg;
+is $gpool->used, 0, "all try_alloc_guard guards cleaned up";
+
 # --- Concurrent recovery ---
 
 my $rpath = tmpnam() . '.shm';

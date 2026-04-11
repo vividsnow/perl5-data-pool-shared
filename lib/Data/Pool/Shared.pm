@@ -60,10 +60,7 @@ sub try_alloc_set {
 
 sub each_allocated {
     my ($self, $cb) = @_;
-    my $cap = $self->capacity;
-    for my $i (0 .. $cap - 1) {
-        $cb->($i) if $self->is_allocated($i);
-    }
+    $cb->($_) for @{ $self->allocated_slots };
 }
 
 1;
@@ -106,8 +103,8 @@ Data::Pool::Shared - Fixed-size shared-memory object pool for Linux
     }  # auto-freed
 
     # Lock-free primitives
-    my $old = $ints->cmpxchg($i, 99, 200);   # CAS returning old value
-    my $old = $ints->xchg($i, 300);           # atomic exchange
+    my $prev = $ints->cmpxchg($i, 99, 200);  # CAS returning old value
+    $prev = $ints->xchg($i, 300);            # atomic exchange
 
     # Batch operations
     my $slots = $pool->alloc_n(10);           # allocate 10 slots
@@ -119,8 +116,8 @@ Data::Pool::Shared - Fixed-size shared-memory object pool for Linux
     my @all = @{ $pool->allocated_slots };    # list all allocated indices
 
     # Convenience
-    my $idx = $ints->alloc_set(42);       # alloc + set
-    my $idx = $ints->try_alloc_set(42);   # non-blocking
+    my $j = $ints->alloc_set(42);         # alloc + set
+    $j = $ints->try_alloc_set(42);        # non-blocking
 
     # Crash recovery
     my $n = $pool->recover_stale;         # free slots owned by dead PIDs
@@ -134,10 +131,10 @@ Data::Pool::Shared - Fixed-size shared-memory object pool for Linux
     }
 
     # Anonymous (fork-inherited)
-    my $pool = Data::Pool::Shared::I64->new(undef, 100);
+    $pool = Data::Pool::Shared::I64->new(undef, 100);
 
     # memfd (fd-passable)
-    my $pool = Data::Pool::Shared::I64->new_memfd("my_pool", 100);
+    $pool = Data::Pool::Shared::I64->new_memfd("my_pool", 100);
     my $fd = $pool->memfd;
 
 =head1 DESCRIPTION
@@ -194,11 +191,14 @@ startup for crash recovery.
     my $p = Data::Pool::Shared::I32->new($path, $capacity);
     my $p = Data::Pool::Shared::F64->new($path, $capacity);
     my $p = Data::Pool::Shared::I64->new_memfd($name, $capacity);
+
+    # All variants support new_from_fd
     my $p = Data::Pool::Shared::I64->new_from_fd($fd);
 
     # Str pool
     my $p = Data::Pool::Shared::Str->new($path, $capacity, $max_len);
     my $p = Data::Pool::Shared::Str->new_memfd($name, $capacity, $max_len);
+    my $p = Data::Pool::Shared::Str->new_from_fd($fd);
 
 =head1 METHODS
 
@@ -254,6 +254,9 @@ code that needs a C<void*>.
 
 C<data_ptr> returns the base of the contiguous data region. Slots
 are laid out as C<data_ptr + idx * elem_size>.
+
+B<Warning>: The returned pointer becomes dangling if the pool object
+is destroyed. Do not use after the pool goes out of scope.
 
 =head2 Zero-Copy Access
 
