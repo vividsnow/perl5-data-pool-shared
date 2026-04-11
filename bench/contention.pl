@@ -45,8 +45,8 @@ for my $cap (2, 4, 8, 16, 32, 64, 128, 256, 1024, 4096) {
 }
 
 printf "\nBatch alloc/free_n comparison:\n\n";
-printf "  %-12s %12s %12s\n", "batch size", "individual", "batched";
-printf "  %s\n", "-" x 40;
+printf "  %-14s %12s %12s\n", "batch size", "individual", "batched";
+printf "  %s\n", "-" x 42;
 
 my $BATCH_OPS = $OPS / 10;
 for my $batch (1, 4, 16, 64) {
@@ -71,6 +71,6 @@ for my $batch (1, 4, 16, 64) {
     }
     my $dt_bat = time - $t0;
 
-    printf "  batch=%-6d %10.0f/s %10.0f/s\n",
+    printf "  batch=%-8d %10.0f/s %10.0f/s\n",
         $batch, $BATCH_OPS / $dt_ind, $BATCH_OPS / $dt_bat;
 }

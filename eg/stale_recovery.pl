@@ -7,6 +7,7 @@ use FindBin;
 use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
 use POSIX qw(_exit);
 use Data::Pool::Shared;
+$| = 1;
 
 my $pool = Data::Pool::Shared::I64->new(undef, 10);
 

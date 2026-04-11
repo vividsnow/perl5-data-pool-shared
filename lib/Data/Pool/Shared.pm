@@ -105,9 +105,25 @@ Data::Pool::Shared - Fixed-size shared-memory object pool for Linux
         # ... use slot ...
     }  # auto-freed
 
+    # Lock-free primitives
+    my $old = $ints->cmpxchg($i, 99, 200);   # CAS returning old value
+    my $old = $ints->xchg($i, 300);           # atomic exchange
+
+    # Batch operations
+    my $slots = $pool->alloc_n(10);           # allocate 10 slots
+    $pool->free_n($slots);                    # batch free
+
+    # Zero-copy and raw pointers
+    my $sv  = $pool->slot_sv($idx);           # read-only SV over slot memory
+    my $ptr = $pool->ptr($idx);               # C pointer (UV) for FFI/OpenGL
+    my @all = @{ $pool->allocated_slots };    # list all allocated indices
+
     # Convenience
     my $idx = $ints->alloc_set(42);       # alloc + set
     my $idx = $ints->try_alloc_set(42);   # non-blocking
+
+    # Crash recovery
+    my $n = $pool->recover_stale;         # free slots owned by dead PIDs
 
     # Cross-process via fork
     if (fork == 0) {
@@ -173,12 +189,16 @@ startup for crash recovery.
     my $p = Data::Pool::Shared->new_memfd($name, $capacity, $elem_size);
     my $p = Data::Pool::Shared->new_from_fd($fd);
 
-    # I64 pool
+    # I64 / I32 / F64 pools (elem_size is implicit)
     my $p = Data::Pool::Shared::I64->new($path, $capacity);
+    my $p = Data::Pool::Shared::I32->new($path, $capacity);
+    my $p = Data::Pool::Shared::F64->new($path, $capacity);
     my $p = Data::Pool::Shared::I64->new_memfd($name, $capacity);
+    my $p = Data::Pool::Shared::I64->new_from_fd($fd);
 
     # Str pool
     my $p = Data::Pool::Shared::Str->new($path, $capacity, $max_len);
+    my $p = Data::Pool::Shared::Str->new_memfd($name, $capacity, $max_len);
 
 =head1 METHODS
 
@@ -197,6 +217,7 @@ Returns slot index on success, C<undef> on failure/timeout.
 
     my $slots = $pool->alloc_n($n);            # allocate N slots (blocking)
     my $slots = $pool->alloc_n($n, $timeout);  # with timeout
+    my $slots = $pool->alloc_n($n, 0);         # non-blocking
     # returns arrayref of indices, or undef (all-or-nothing)
 
     my $freed = $pool->free_n(\@indices);      # batch free, returns count freed

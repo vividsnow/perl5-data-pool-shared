@@ -36,11 +36,14 @@ printf "after die: used = %d\n\n", $pool->used;
 }
 printf "after scalar guard: used = %d\n\n", $pool->used;
 
-# try_alloc_guard — non-blocking
+# try_alloc_guard — fill pool, guards keep slots alive
+my @guards;
 for (1..4) {
     my ($idx, $guard) = $pool->try_alloc_guard;
-    printf "try_alloc_guard: %s\n", defined $idx ? "slot $idx" : "full";
+    printf "try_alloc_guard: %s (used=%d)\n",
+        defined $idx ? "slot $idx" : "full", $pool->used;
+    push @guards, $guard if $guard;
 }
-# 5th should fail
+# 5th should fail — pool is full
 my ($idx, $guard) = $pool->try_alloc_guard;
 printf "try_alloc_guard when full: %s\n", defined $idx ? "slot $idx" : "undef (pool full)";

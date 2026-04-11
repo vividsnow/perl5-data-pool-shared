@@ -13,12 +13,14 @@ for my $cap (1, 2, 63, 64, 65, 127, 128, 129) {
 
     # fill to capacity
     my @slots;
+    my $alloc_ok = 1;
     for my $n (1..$cap) {
         my $s = $pool->alloc;
-        die "cap=$cap alloc $n failed" unless defined $s;
+        unless (defined $s) { $alloc_ok = 0; last }
         $pool->set($s, $n);
         push @slots, $s;
     }
+    ok $alloc_ok, "cap=$cap alloc 1..$cap";
     is $pool->used, $cap, "cap=$cap fully used";
     ok !defined $pool->try_alloc, "cap=$cap full";
 

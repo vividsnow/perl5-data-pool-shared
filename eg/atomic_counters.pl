@@ -8,6 +8,7 @@ use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
 use POSIX qw(_exit);
 use Time::HiRes qw(time);
 use Data::Pool::Shared;
+$| = 1;
 
 my $nworkers = shift || 4;
 my $iters    = shift || 100_000;
@@ -45,8 +46,7 @@ for my $c (@counters) {
     $total += $v;
 }
 
-my $total_ops = $total;
 printf "\ntotal: %d ops in %.3fs (%.0f ops/s)\n",
-    $total_ops, $elapsed, $total_ops / $elapsed;
+    $total, $elapsed, $total / $elapsed;
 
 $pool->free($_) for @counters;
