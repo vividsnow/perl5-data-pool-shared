@@ -14,6 +14,7 @@ use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
 eval { require FFI::Platypus; 1 }
     or die "FFI::Platypus required: install with cpanm FFI::Platypus\n";
 
+$| = 1;
 use Data::Pool::Shared;
 
 my $N = shift || 20;

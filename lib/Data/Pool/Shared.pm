@@ -1,7 +1,7 @@
 package Data::Pool::Shared;
 use strict;
 use warnings;
-our $VERSION = '0.01';
+our $VERSION = '0.03';
 
 require XSLoader;
 XSLoader::load('Data::Pool::Shared', $VERSION);
@@ -266,8 +266,11 @@ Returns a read-only scalar whose PV points directly into the shared
 memory slot. Reading the scalar reads the slot with no C<memcpy>.
 Useful for large slots where avoiding copy matters.
 
-The scalar must not outlive the pool object. To modify the slot,
-use C<set()>.
+The scalar holds a reference to the pool object, keeping it alive
+for as long as the scalar (or any copy of it) is live. However, the
+scalar still reflects the current contents of the slot: if the slot
+is C<free()>d and later re-allocated, reads will see the new data.
+To modify the slot, use C<set()>.
 
 =head2 Status
 
@@ -383,19 +386,18 @@ Measured on a single-socket x86_64 Linux system, Perl 5.40.
 
     Single process (1M ops):
       I64 alloc + free          3.3M/s
-      I64 get                  ~10M/s
-      I64 set                  ~10M/s
+      I64 get/set              ~10M/s
       I64 add/incr             ~10M/s
-      I64 cas                   9.4M/s
+      I64 cas                   9.8M/s
       Str set (48B)            ~10M/s
-      Str get (48B)             7.6M/s
-      alloc_set + free          1.8M/s
+      Str get (48B)             7.5M/s
+      alloc_set + free          1.9M/s
 
     Multi-process (8 workers, 200K ops each, cap=64):
-      I64 alloc/free            5.4M/s aggregate
-      I64 alloc/set/get/free    5.3M/s aggregate
-      I64 atomic add           28.5M/s aggregate
-      Str alloc/set/get/free    4.8M/s aggregate
+      I64 alloc/free            4.7M/s aggregate
+      I64 alloc/set/get/free    5.1M/s aggregate
+      I64 atomic add           22.9M/s aggregate
+      Str alloc/set/get/free    4.9M/s aggregate
 
     Batch (single process, alloc_n + free_n):
       batch=1                   ~2.3M/s
@@ -403,6 +405,34 @@ Measured on a single-socket x86_64 Linux system, Perl 5.40.
       batch=64                  ~110K/s  (vs ~50K individual, 2x gain)
 
 Bottleneck is Perl XS call overhead, not the CAS or futex.
+
+=head1 SEE ALSO
+
+L<Data::Buffer::Shared> - typed shared array (index-based, no alloc/free)
+
+L<Data::Stack::Shared> - LIFO stack
+
+L<Data::Deque::Shared> - double-ended queue
+
+L<Data::Queue::Shared> - FIFO queue
+
+L<Data::ReqRep::Shared> - request-reply
+
+L<Data::Log::Shared> - append-only log (WAL)
+
+L<Data::Sync::Shared> - synchronization primitives
+
+L<Data::HashMap::Shared> - concurrent hash table
+
+L<Data::PubSub::Shared> - publish-subscribe ring
+
+L<Data::Heap::Shared> - priority queue
+
+L<Data::Graph::Shared> - directed weighted graph
+
+L<Data::BitSet::Shared> - shared bitset (lock-free per-bit ops)
+
+L<Data::RingBuffer::Shared> - fixed-size overwriting ring buffer
 
 =head1 AUTHOR
 

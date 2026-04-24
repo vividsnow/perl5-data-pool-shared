@@ -174,8 +174,11 @@ METHODS
     memory slot. Reading the scalar reads the slot with no "memcpy". Useful
     for large slots where avoiding copy matters.
 
-    The scalar must not outlive the pool object. To modify the slot, use
-    set().
+    The scalar holds a reference to the pool object, keeping it alive for as
+    long as the scalar (or any copy of it) is live. However, the scalar
+    still reflects the current contents of the slot: if the slot is free()d
+    and later re-allocated, reads will see the new data. To modify the slot,
+    use set().
 
   Status
         my $ok  = $pool->is_allocated($idx);
@@ -263,19 +266,18 @@ BENCHMARKS
 
         Single process (1M ops):
           I64 alloc + free          3.3M/s
-          I64 get                  ~10M/s
-          I64 set                  ~10M/s
+          I64 get/set              ~10M/s
           I64 add/incr             ~10M/s
-          I64 cas                   9.4M/s
+          I64 cas                   9.8M/s
           Str set (48B)            ~10M/s
-          Str get (48B)             7.6M/s
-          alloc_set + free          1.8M/s
+          Str get (48B)             7.5M/s
+          alloc_set + free          1.9M/s
 
         Multi-process (8 workers, 200K ops each, cap=64):
-          I64 alloc/free            5.4M/s aggregate
-          I64 alloc/set/get/free    5.3M/s aggregate
-          I64 atomic add           28.5M/s aggregate
-          Str alloc/set/get/free    4.8M/s aggregate
+          I64 alloc/free            4.7M/s aggregate
+          I64 alloc/set/get/free    5.1M/s aggregate
+          I64 atomic add           22.9M/s aggregate
+          Str alloc/set/get/free    4.9M/s aggregate
 
         Batch (single process, alloc_n + free_n):
           batch=1                   ~2.3M/s
@@ -283,6 +285,33 @@ BENCHMARKS
           batch=64                  ~110K/s  (vs ~50K individual, 2x gain)
 
     Bottleneck is Perl XS call overhead, not the CAS or futex.
+
+SEE ALSO
+    Data::Buffer::Shared - typed shared array (index-based, no alloc/free)
+
+    Data::Stack::Shared - LIFO stack
+
+    Data::Deque::Shared - double-ended queue
+
+    Data::Queue::Shared - FIFO queue
+
+    Data::ReqRep::Shared - request-reply
+
+    Data::Log::Shared - append-only log (WAL)
+
+    Data::Sync::Shared - synchronization primitives
+
+    Data::HashMap::Shared - concurrent hash table
+
+    Data::PubSub::Shared - publish-subscribe ring
+
+    Data::Heap::Shared - priority queue
+
+    Data::Graph::Shared - directed weighted graph
+
+    Data::BitSet::Shared - shared bitset (lock-free per-bit ops)
+
+    Data::RingBuffer::Shared - fixed-size overwriting ring buffer
 
 AUTHOR
     vividsnow
