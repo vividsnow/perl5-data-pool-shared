@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../blib/lib", "$FindBin::Bin/../blib/arch";
+$| = 1;
 use Data::Pool::Shared;
 
 my $pool = Data::Pool::Shared::I64->new(undef, 4);
