@@ -125,6 +125,19 @@ METHODS
 
         $pool->free($idx);                  # release slot (returns true/false)
 
+   Deterministic allocation order
+        $pool->scan_from(0);   # next alloc scans from slot 0 (reproducible low-to-high)
+
+    By default each handle begins its bitmap scan at a getpid()-derived word
+    offset, spreading concurrent allocators across the bitmap to cut CAS
+    contention -- but that makes the allocated ids non-reproducible across
+    runs. For a single allocator that wants deterministic, sequential ids,
+    scan_from($slot) pins the scan start to $slot's 64-slot word (pass 0 for
+    low-to-high order). It is per-handle (does not affect other processes),
+    takes effect on the next "alloc", and an out-of-range $slot wraps. The
+    bitmap is still the source of truth, so this only changes *where* the
+    scan starts, never correctness. All typed variants inherit it.
+
   Batch Operations
         my $slots = $pool->alloc_n($n);            # allocate N slots (blocking)
         my $slots = $pool->alloc_n($n, $timeout);  # with timeout
