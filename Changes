@@ -1,5 +1,9 @@
 Revision history for Data::Pool::Shared
 
+0.08      2026-07-21
+          - Reject alloc_n counts above 2^32.
+          - A guard no longer frees the parent slot from a forked child.
+
 0.07  2026-07-03
     - Security and robustness hardening; backing files now created mode
       0600 (pass a file-mode argument to new() for cross-user sharing).
