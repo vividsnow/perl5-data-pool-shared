@@ -18,6 +18,7 @@ sub CLONE_SKIP { 1 }  # blessed C-pointer handle: never clone into ithreads (dou
 # Guard -- auto-free on scope exit
 
 package Data::Pool::Shared::Guard {
+    our $VERSION = '0.08';   # indexable package: PAUSE needs a version here too
     sub DESTROY {
         my $self = shift;
         # only the creating process frees the slot: after fork the child inherits

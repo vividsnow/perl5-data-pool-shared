@@ -1,6 +1,15 @@
 Revision history for Data::Pool::Shared
 
-0.08      2026-07-21
+0.08      2026-07-22
+          - Fix a use-after-free in set() for the Raw and Str pools: the value
+            argument is a bare SV, so its overload or tie magic runs Perl that
+            can destroy the pool, after which the already-captured handle was
+            still used. Such a call now croaks.
+          - Reject a crafted header whose full layout overflows 64 bits. The
+            attach-time check counted only the header, while the create paths
+            counted header + bitmap + owners + data, so a wrapped total_size
+            could place the slot pointers outside the mapping.
+          - Give Data::Pool::Shared::Guard a $VERSION so PAUSE indexes it.
           - Reject alloc_n counts above 2^32.
           - A guard no longer frees the parent slot from a forked child.
 

@@ -31,7 +31,12 @@ static const MGVTBL pool_scalar_magic_vtbl = {
  * pins the referent only against refcount-driven destruction, not an
  * explicit DESTROY, so the local `h` would dangle.  Used only where magic
  * can actually intervene between EXTRACT and the first use of h. */
+/* The same Perl can also REPLACE the invocant ($obj = 42 from an overload
+ * handler mutates ST(0), because Perl passes aliases), so SvROK is re-checked
+ * before SvRV -- otherwise SvRV would run on a non-reference. */
 #define REEXTRACT_POOL(sv) \
+    if (!SvROK(sv)) \
+        croak("Data::Pool::Shared object was replaced during the call"); \
     h = INT2PTR(PoolHandle*, SvIV(SvRV(sv))); \
     if (!h) croak("Data::Pool::Shared object destroyed during the call")
 
@@ -172,6 +177,12 @@ set(self, slot, data)
     CHECK_ALLOCATED(h, slot);
     STRLEN len;
     const char *bytes = SvPV(data, len);
+    /* SvPV on a bare SV arg runs overload/tie magic = arbitrary Perl, which can
+     * have destroyed self before h is used below. (CHECK_SLOT/CHECK_ALLOCATED
+     * above ran on the pre-magic handle; re-validate against the current one.) */
+    REEXTRACT_POOL(self);
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
     if (len > h->elem_size)
         len = h->elem_size;
     memcpy(pool_slot_ptr(h, slot), bytes, len);
@@ -995,6 +1006,12 @@ set(self, slot, val)
     CHECK_ALLOCATED(h, slot);
     STRLEN len;
     const char *str = SvPV(val, len);
+    /* SvPV on a bare SV arg runs overload/tie magic = arbitrary Perl, which can
+     * have destroyed self before h is used below. (CHECK_SLOT/CHECK_ALLOCATED
+     * above ran on the pre-magic handle; re-validate against the current one.) */
+    REEXTRACT_POOL(self);
+    CHECK_SLOT(h, slot);
+    CHECK_ALLOCATED(h, slot);
     pool_set_str(h, slot, str, (uint32_t)len);
 
 UV
