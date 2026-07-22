@@ -560,7 +560,18 @@ static inline int pool_validate_header(const PoolHeader *hdr, uint64_t file_size
       if (w && hdr->elem_size != w) return 0; }   /* typed variant: elem_size must match its fixed width */
     if (hdr->capacity == 0 || hdr->capacity > POOL_MAX_CAPACITY) return 0;
     if (hdr->elem_size == 0) return 0;
-    if (hdr->capacity > (UINT64_MAX - sizeof(PoolHeader)) / hdr->elem_size) return 0;
+    /* Full-layout overflow check, identical to the one the create paths apply:
+     * total = header + bitmap + owners + data. Counting only sizeof(PoolHeader)
+     * here was weaker than at creation, so a crafted header could wrap
+     * total_size mod 2^64, satisfy the equality checks below, and leave the
+     * derived slot pointers far outside the mapping.
+     * capacity <= POOL_MAX_CAPACITY (checked above) bounds the bitmap/owners
+     * products, so computing the overhead cannot itself overflow. */
+    {   uint64_t overhead = sizeof(PoolHeader)
+                          + ((hdr->capacity + 63) / 64) * 8
+                          + POOL_ALIGN8(hdr->capacity * 4);
+        if (hdr->capacity > (UINT64_MAX - overhead) / hdr->elem_size) return 0;
+    }
     if (hdr->total_size != file_size) return 0;
 
     uint64_t bm_off, own_off, dat_off, total;
